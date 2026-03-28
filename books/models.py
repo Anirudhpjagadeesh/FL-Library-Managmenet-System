@@ -15,6 +15,7 @@ class Category(models.Model):
 
 class Book(models.Model):
     title = models.CharField(max_length=200)
+    flb_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     total_copies = models.PositiveIntegerField()

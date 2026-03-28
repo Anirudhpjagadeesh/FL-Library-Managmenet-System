@@ -20,14 +20,12 @@ def home(request):
     available_books = Book.objects.filter(available_copies__gt=0).count()
     issued_books = IssueBook.objects.filter(returned=False).count()
     total_members = User.objects.count()
-    out_of_stock = Book.objects.filter(available_copies=0).count()
 
     context = {
         'total_books': total_books,
         'available_books': available_books,
         'issued_books': issued_books,
         'total_members': total_members,
-        'out_of_stock': out_of_stock
     }
 
     return render(request, 'home.html', context)
@@ -55,14 +53,12 @@ def dashboard(request):
     available_books = Book.objects.filter(available_copies__gt=0).count()
     issued_books = IssueBook.objects.filter(returned=False).count()
     total_members = User.objects.count()
-    out_of_stock = Book.objects.filter(available_copies=0).count()
 
     context = {
         'total_books': total_books,
         'available_books': available_books,
         'issued_books': issued_books,
         'total_members': total_members,
-        'out_of_stock': out_of_stock
     }
     return render(request, "dashboard.html", context)
 
@@ -135,6 +131,14 @@ class BookViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
     pagination_class = None
 
+    def get_or_create_author_category(self, request_data):
+        author_name = request_data.get('author_name')
+        category_name = request_data.get('category_name')
+        
+        author, _ = Author.objects.get_or_create(name=author_name)
+        category, _ = Category.objects.get_or_create(name=category_name)
+        
+        return author, category
 
     def create(self, request, *args, **kwargs):
         title = request.data.get('title')
@@ -143,23 +147,53 @@ class BookViewSet(viewsets.ModelViewSet):
                 {"error": "A book with this title already exists."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        return super().create(request, *args, **kwargs)
+        
+        author, category = self.get_or_create_author_category(request.data)
+        total_copies = request.data.get('total_copies')
 
-    def perform_create(self, serializer):
-        book = serializer.save()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        book = serializer.save(
+            author=author,
+            category=category,
+            available_copies=total_copies
+        )
+        
         log_activity(
             user=self.request.user,
             action="Created Book",
             target=f"Book: {book.title}"
         )
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    def perform_update(self, serializer):
-        book = serializer.save()
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        author, category = self.get_or_create_author_category(request.data)
+        
+        # Adjust available_copies based on change in total_copies
+        new_total = int(request.data.get('total_copies', instance.total_copies))
+        diff = new_total - instance.total_copies
+        new_available = instance.available_copies + diff
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        book = serializer.save(
+            author=author,
+            category=category,
+            available_copies=new_available
+        )
+        
         log_activity(
             user=self.request.user,
             action="Updated Book",
             target=f"Book: {book.title}"
         )
+        
+        return Response(serializer.data)
 
     def perform_destroy(self, instance):
         log_activity(

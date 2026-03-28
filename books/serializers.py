@@ -19,9 +19,17 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class BookSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source='author.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
     class Meta:
         model = Book
-        fields = '__all__'
+        fields = ['id', 'flb_id', 'title', 'author', 'category', 'total_copies', 'available_copies', 'author_name', 'category_name']
+        extra_kwargs = {
+            'author': {'required': False},
+            'category': {'required': False},
+            'available_copies': {'required': False}
+        }
 
 # class IssueBookSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -31,12 +39,13 @@ class BookSerializer(serializers.ModelSerializer):
 
 class IssueBookSerializer(serializers.ModelSerializer):
     book_title = serializers.CharField(source='book.title', read_only=True)
+    book_flb_id = serializers.CharField(source='book.flb_id', read_only=True)
     user_name = serializers.CharField(source='user.username', read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
 
     class Meta:
         model = IssueBook
-        fields = ['id', 'book', 'user', 'issue_timestamp', 'return_timestamp', 'returned', 'book_title', 'user_name', 'email']
+        fields = '__all__'
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):

@@ -19,13 +19,14 @@
             <thead class="table-dark">
                 <tr>
                     <th>#</th>
-                    <th>Book</th>
-                    <th>Issued To</th>
+                    <th>FLB_ID</th>
+                    <th>Book Title</th>
+                    <th>Student Name</th>
                     <th>Email</th>
-                    <th>Issued Date</th>
-                    <th>Return Date</th>
+                    <th>Issued</th>
+                    <th>Returned</th>
                     <th>Status</th>
-                    <th>Return Book</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="issued-table"></tbody>
@@ -222,6 +223,7 @@ function loadIssuedBooks(url = `${issuedAPI}?page=${currentPage}`) {
                 rows += `
                     <tr>
                         <td>${((currentPage - 1) * 10) + index + 1}</td>
+                        <td class="fw-bold text-primary">${item.book_flb_id || "-"}</td>
                         <td class="fw-bold">${item.book_title || "Unknown"}</td>
                         <td>${item.user_name || "-"}</td>
                         <td>${item.email || "-"}</td>

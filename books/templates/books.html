@@ -18,7 +18,7 @@
         <table class="table table-bordered table-hover align-middle text-center mb-0">
             <thead class="table-dark">
                 <tr>
-                    <th>ID</th>
+                    <th>FLB_ID</th>
                     <th>Title</th>
                     <th>Author</th>
                     <th>Category</th>
@@ -164,7 +164,7 @@ function loadBooks(url = API) {
 
                 rows += `
                     <tr>
-                        <td><span class="badge bg-secondary">#${book.id}</span></td>
+                        <td class="fw-bold text-primary">${book.flb_id || "-"}</td>
                         <td class="fw-bold">${book.title}</td>
                         <td>${authorName}</td>
                         <td>${categoryName}</td>

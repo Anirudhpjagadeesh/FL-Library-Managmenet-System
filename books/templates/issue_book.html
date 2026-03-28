@@ -15,6 +15,23 @@
                 </div>
                 <div class="card-body">
 
+                    <!-- Unified Search Book -->
+                    <div class="mb-3 position-relative">
+                        <label for="book_search" class="form-label fw-bold">Search Book (by Title or FLB_ID)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                            <input type="text" id="book_search" class="form-control" 
+                                   placeholder="Type book title or FLB_ID..." autocomplete="off">
+                        </div>
+                        <!-- Hidden field for selected book ID -->
+                        <input type="hidden" id="selected_book_id">
+                        
+                        <!-- Search Results Dropdown -->
+                        <div id="search-results" class="list-group position-absolute w-100 shadow-lg mt-1" 
+                             style="z-index: 1050; max-height: 250px; overflow-y: auto; display: none;">
+                        </div>
+                    </div>
+
                     <!-- QR/Barcode Code Scanner Section -->
                     <div id="qr-scanner-container" class="mb-4 text-center">
                         <button id="toggle-scanner" class="btn btn-outline-dark btn-sm mb-2">
@@ -24,18 +41,21 @@
                         <p id="scan-result" class="small text-success mt-2 fw-bold" style="display: none;"></p>
                     </div>
 
-                    <!-- Select Book -->
-                    <label for="book_id" class="form-label">Select Book</label>
-                    <select id="book_id" class="form-select mb-3">
-                        <option value="">-- Choose a Book --</option>
-                    </select>
-
                     <!-- Select User -->
-                    <div id="user-selection-group">
-                        <label for="user_id" class="form-label">Select User</label>
-                        <select id="user_id" class="form-select mb-4">
-                            <option value="">-- Choose a User --</option>
-                        </select>
+                    <div id="user-selection-group" class="mb-4 position-relative">
+                        <label for="user_search" class="form-label fw-bold">Search User (by Name or Email)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-person-search"></i></span>
+                            <input type="text" id="user_search" class="form-control" 
+                                   placeholder="Type student name or email..." autocomplete="off">
+                        </div>
+                        <!-- Hidden field for selected user ID -->
+                        <input type="hidden" id="selected_user_id">
+                        
+                        <!-- User Search Results Dropdown -->
+                        <div id="user-search-results" class="list-group position-absolute w-100 shadow-lg mt-1" 
+                             style="z-index: 1050; max-height: 200px; overflow-y: auto; display: none;">
+                        </div>
                     </div>
 
                     <!-- Issue Button -->
@@ -52,9 +72,120 @@
 const token = localStorage.getItem("access");
 if (!token) window.location.href = "/";
 
-const bookSelect = document.getElementById("book_id");
-const userSelect = document.getElementById("user_id");
+const bookSearchInput = document.getElementById("book_search");
+const selectedBookIdInput = document.getElementById("selected_book_id");
+const searchResultsContainer = document.getElementById("search-results");
+
+const userSearchInput = document.getElementById("user_search");
+const selectedUserIdInput = document.getElementById("selected_user_id");
+const userSearchResultsContainer = document.getElementById("user-search-results");
+
 const issueBtn = document.getElementById("issue-btn");
+
+let allBooks = []; // To store the list of books locally for searching
+let allUsers = []; // To store the list of users locally for searching
+
+// ------------------- BOOK SEARCH LOGIC -------------------
+bookSearchInput.addEventListener("input", function() {
+    const query = this.value.trim().toLowerCase();
+    if (query.length < 1) {
+        searchResultsContainer.style.display = "none";
+        return;
+    }
+
+    const filtered = allBooks.filter(book => {
+        const titleMatch = book.title.toLowerCase().includes(query);
+        const flbIdMatch = (book.flb_id || "").toLowerCase().includes(query);
+        return titleMatch || flbIdMatch;
+    });
+
+    displaySearchResults(filtered);
+});
+
+function displaySearchResults(results) {
+    if (results.length === 0) {
+        searchResultsContainer.innerHTML = '<div class="list-group-item text-muted">No books found</div>';
+    } else {
+        searchResultsContainer.innerHTML = results.map(book => {
+            const flbText = book.flb_id ? `<span class="badge bg-primary me-2">${book.flb_id}</span>` : "";
+            const disabledClass = book.available_copies === 0 ? "disabled text-muted bg-light" : "list-group-item-action";
+            const availabilityText = book.available_copies === 0 ? " (Out of Stock)" : ` (${book.available_copies} available)`;
+            
+            return `
+                <a href="javascript:void(0)" 
+                   class="list-group-item list-group-item-action ${disabledClass}" 
+                   onclick="${book.available_copies > 0 ? `selectBook(${book.id}, '${book.title.replace(/'/g, "\\'")}', '${(book.flb_id || '').replace(/'/g, "\\'")}')` : ''}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>${flbText} <strong>${book.title}</strong></div>
+                        <small class="text-muted">${availabilityText}</small>
+                    </div>
+                </a>
+            `;
+        }).join("");
+    }
+    searchResultsContainer.style.display = "block";
+}
+
+function selectBook(id, title, flbId) {
+    selectedBookIdInput.value = id;
+    const displayText = flbId ? `[${flbId}] ${title}` : title;
+    bookSearchInput.value = displayText;
+    searchResultsContainer.style.display = "none";
+}
+
+// ------------------- USER SEARCH LOGIC -------------------
+userSearchInput.addEventListener("input", function() {
+    const query = this.value.trim().toLowerCase();
+    if (query.length < 1) {
+        userSearchResultsContainer.style.display = "none";
+        return;
+    }
+
+    const filtered = allUsers.filter(user => {
+        const nameMatch = user.username.toLowerCase().includes(query);
+        const emailMatch = (user.email || "").toLowerCase().includes(query);
+        return nameMatch || emailMatch;
+    });
+
+    displayUserSearchResults(filtered);
+});
+
+function displayUserSearchResults(results) {
+    if (results.length === 0) {
+        userSearchResultsContainer.innerHTML = '<div class="list-group-item text-muted">No users found</div>';
+    } else {
+        userSearchResultsContainer.innerHTML = results.map(user => {
+            return `
+                <a href="javascript:void(0)" 
+                   class="list-group-item list-group-item-action" 
+                   onclick="selectUser(${user.id}, '${user.username.replace(/'/g, "\\'")}', '${(user.email || '').replace(/'/g, "\\'")}')">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><strong>${user.username}</strong></div>
+                        <small class="text-muted">${user.email || ""}</small>
+                    </div>
+                </a>
+            `;
+        }).join("");
+    }
+    userSearchResultsContainer.style.display = "block";
+}
+
+function selectUser(id, username, email) {
+    selectedUserIdInput.value = id;
+    const displayText = email ? `${username} (${email})` : username;
+    userSearchInput.value = displayText;
+    userSearchResultsContainer.style.display = "none";
+}
+
+// Close results when clicking outside
+document.addEventListener("click", function(e) {
+    if (e.target !== bookSearchInput && e.target !== searchResultsContainer) {
+        searchResultsContainer.style.display = "none";
+    }
+    if (e.target !== userSearchInput && e.target !== userSearchResultsContainer) {
+        userSearchResultsContainer.style.display = "none";
+    }
+});
 
 // ------------------- QR CODE SCANNER -------------------
 let html5QrCode;
@@ -85,27 +216,27 @@ function startScanner() {
 }
 
 function onScanSuccess(decodedText) {
-    // We assume the QR code contains the book ID
-    const bookId = decodedText.trim();
+    // The QR code can contain the FLB_ID or the Book ID
+    const scannedVal = decodedText.trim().toUpperCase();
     
-    // Check if the book ID exists in the select dropdown
-    const options = bookSelect.options;
-    let found = false;
+    // Check if the value matches any FLB_ID or ID in our loaded list
+    const foundBook = allBooks.find(book => {
+        const flbIdMatch = (book.flb_id || "").toUpperCase() === scannedVal;
+        const idMatch = String(book.id) === scannedVal;
+        return flbIdMatch || idMatch;
+    });
 
-    for (let i = 0; i < options.length; i++) {
-        if (options[i].value === bookId) {
-            bookSelect.selectedIndex = i;
-            found = true;
-            break;
+    if (foundBook) {
+        if (foundBook.available_copies > 0) {
+            selectBook(foundBook.id, foundBook.title, foundBook.flb_id);
+            scanResult.innerText = `✅ Scanned: ${scannedVal}`;
+            scanResult.style.display = "block";
+            stopScanner();
+        } else {
+            alert(`Book [${scannedVal}] is currently out of stock.`);
         }
-    }
-
-    if (found) {
-        scanResult.innerText = `✅ Scanned Book ID: ${bookId}`;
-        scanResult.style.display = "block";
-        stopScanner();
     } else {
-        alert("No book found with the scanned ID.");
+        alert(`No book found with ID or FLB_ID: ${scannedVal}`);
     }
 }
 
@@ -128,20 +259,7 @@ function loadBooks() {
     })
     .then(res => res.json())
     .then(data => {
-        bookSelect.innerHTML = '<option value="">-- Choose a Book --</option>';
-
-        const books = data.results || data; // pagination safe
-
-        books.forEach(book => {
-            const disabled = book.available_copies === 0 ? "disabled" : "";
-            const text = `${book.title} (${book.available_copies} available)`;
-
-            bookSelect.innerHTML += `
-                <option value="${book.id}" ${disabled}>
-                    ${text}
-                </option>
-            `;
-        });
+        allBooks = data.results || data; // Store books locally for search
     })
     .catch(err => console.error("Books load error:", err));
 }
@@ -156,29 +274,19 @@ async function loadUsers() {
     const me = await meRes.json();
 
     if (!me.is_superuser) {
-        // If not admin, hide user selection and pre-set to current user
+        // If not admin, hide user selection search and pre-set to current user
         document.getElementById("user-selection-group").style.display = "none";
-        userSelect.innerHTML = `<option value="${me.id}" selected>${me.username}</option>`;
+        selectedUserIdInput.value = me.id;
         return;
     }
 
-    // If admin, load all users
+    // If admin, load all users for the search list
     return fetch("/api/auth/users/", {
         headers: { Authorization: "Bearer " + token }
     })
     .then(res => res.json())
     .then(data => {
-        userSelect.innerHTML = '<option value="">-- Choose a User --</option>';
-
-        const users = data.results || data; // pagination safe
-
-        users.forEach(user => {
-            userSelect.innerHTML += `
-                <option value="${user.id}">
-                    ${user.username}
-                </option>
-            `;
-        });
+        allUsers = data.results || data; // Store users locally for search
     })
     .catch(err => console.error("Users load error:", err));
 }
@@ -199,7 +307,10 @@ Promise.all([loadBooks(), loadUsers()]).then(() => {
 
 // ------------------- ISSUE BOOK -------------------
 function issueBook() {
-    if (!bookSelect.value || !userSelect.value) {
+    const bookId = selectedBookIdInput.value;
+    const userId = userSelect.value;
+
+    if (!bookId || !userId) {
         alert("Please select both a book and a user.");
         return;
     }
@@ -214,27 +325,21 @@ function issueBook() {
             Authorization: "Bearer " + token
         },
         body: JSON.stringify({
-            book: Number(bookSelect.value),
-            user: Number(userSelect.value)
+            book: Number(bookId),
+            user: Number(userId)
         })
     })
-    .then(res => {
-        if (!res.ok) throw new Error("Failed to issue book");
-        return res.json();
-    })
-    .then(() => {
+    .then(async res => {
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || "Error issuing book. Check console.");
+        }
         alert("✅ Book issued successfully!");
-
-        // Reload books dropdown to update availability
-        loadBooks();
-        // Reset selection
-        bookSelect.value = "";
-        userSelect.value = "";
-        issueBtn.disabled = false;
+        window.location.href = "/issued-books/";
     })
     .catch(err => {
         console.error(err);
-        alert("❌ Error issuing book. Check console.");
+        alert(err.message);
         issueBtn.disabled = false;
     });
 }

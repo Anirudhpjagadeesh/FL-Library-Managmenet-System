@@ -12,6 +12,11 @@
 
     <div class="card shadow-sm rounded p-4 mx-auto" style="max-width: 500px;">
 
+        <div class="mb-3">
+            <label for="flb_id" class="form-label fw-bold">FLB_ID</label>
+            <input id="flb_id" type="text" class="form-control form-control-lg" placeholder="Enter FLB ID (e.g. FLB_001)">
+        </div>
+
         <!-- Barcode Scanner Section -->
         <div id="barcode-scanner-container" class="mb-4 text-center">
             <button id="toggle-barcode-scanner" class="btn btn-outline-dark btn-sm mb-2">
@@ -28,26 +33,17 @@
 
         <div class="mb-3">
             <label for="author" class="form-label fw-bold">Author</label>
-            <select id="author" class="form-select form-select-lg">
-                <option value="">Select Author</option>
-            </select>
+            <input id="author" type="text" class="form-control form-control-lg" placeholder="Enter author name">
         </div>
 
         <div class="mb-3">
             <label for="category" class="form-label fw-bold">Category</label>
-            <select id="category" class="form-select form-select-lg">
-                <option value="">Select Category</option>
-            </select>
-        </div>
-
-        <div class="mb-3">
-            <label for="total" class="form-label fw-bold">Total Copies</label>
-            <input id="total" type="number" class="form-control form-control-lg" placeholder="Enter total copies">
+            <input id="category" type="text" class="form-control form-control-lg" placeholder="Enter category">
         </div>
 
         <div class="mb-4">
-            <label for="available" class="form-label fw-bold">Available Copies</label>
-            <input id="available" type="number" class="form-control form-control-lg" placeholder="Enter available copies">
+            <label for="total" class="form-label fw-bold">Total Copies</label>
+            <input id="total" type="number" class="form-control form-control-lg" placeholder="Enter total copies">
         </div>
 
         <button class="btn btn-success w-100 btn-lg fw-bold" onclick="saveBook()">
@@ -60,6 +56,18 @@
 <script>
 const token = localStorage.getItem("access");
 if (!token) window.location.href = "/";
+
+// Check permissions
+fetch("/api/auth/me/", {
+    headers: { Authorization: "Bearer " + token }
+})
+.then(res => res.json())
+.then(user => {
+    if (!user.is_superuser && !user.is_staff) {
+        alert("Access Denied: Admins only.");
+        window.location.href = "/home/";
+    }
+});
 
 // DOM Elements
 const authorEl = document.getElementById("author");
@@ -147,31 +155,6 @@ if (bookId) document.getElementById("page-title").innerText = "Update Book";
 // Maps
 let authorsMap = {};
 
-// ---------------- LOAD AUTHORS ----------------
-function loadAuthors(url = "/api/authors/") {
-    return fetch(url, { headers: { Authorization: "Bearer " + token } })
-        .then(res => res.json())
-        .then(data => {
-            const items = data.results || data;
-            items.forEach(a => {
-                authorsMap[a.id] = a.name;
-                authorEl.innerHTML += `<option value="${a.id}">${a.name}</option>`;
-            });
-            if (data.next) return loadAuthors(data.next);
-        });
-}
-
-// ---------------- LOAD CATEGORIES ----------------
-function loadCategories(url = "/api/categories/") {
-    return fetch(url, { headers: { Authorization: "Bearer " + token } })
-        .then(res => res.json())
-        .then(data => {
-            const items = data.results || data;
-            items.forEach(c => categoryEl.innerHTML += `<option value="${c.id}">${c.name}</option>`);
-            if (data.next) return loadCategories(data.next);
-        });
-}
-
 // ---------------- LOAD BOOK FOR EDIT ----------------
 function loadBook() {
     if (!bookId) return;
@@ -181,49 +164,37 @@ function loadBook() {
     })
     .then(res => res.json())
     .then(book => {
+        document.getElementById("flb_id").value = book.flb_id || "";
         document.getElementById("title").value = book.title;
         document.getElementById("total").value = book.total_copies;
-        document.getElementById("available").value = book.available_copies;
-
-        // Set author select value
-        if (book.author && typeof book.author === "object") {
-            authorEl.value = book.author.id;
-        } else {
-            authorEl.value = book.author;
-        }
-
-        // Set category select value
-        if (book.category && typeof book.category === "object") {
-            categoryEl.value = book.category.id;
-        } else {
-            categoryEl.value = book.category;
-        }
+        document.getElementById("author").value = book.author_name || "";
+        document.getElementById("category").value = book.category_name || "";
     })
     .catch(err => console.error(err));
 }
 
 // ---------------- INITIALIZE ----------------
-Promise.all([loadAuthors(), loadCategories()]).then(() => loadBook());
+loadBook();
 
 // ---------------- SAVE BOOK ----------------
 async function saveBook() {
+    const flb_id = document.getElementById("flb_id").value.trim();
     const title = document.getElementById("title").value.trim();
-    const authorId = Number(authorEl.value);
-    const categoryId = Number(categoryEl.value);
+    const author = document.getElementById("author").value.trim();
+    const category = document.getElementById("category").value.trim();
     const total = Number(document.getElementById("total").value);
-    const available = Number(document.getElementById("available").value);
 
-    if (!title || !authorId || !categoryId) {
+    if (!title || !author || !category) {
         alert("All fields are required");
         return;
     }
 
     const payload = {
+        flb_id,
         title,
-        author: authorId,
-        category: categoryId,
-        total_copies: total,
-        available_copies: available
+        author_name: author,
+        category_name: category,
+        total_copies: total
     };
 
     const apiUrl = bookId 
@@ -239,17 +210,23 @@ async function saveBook() {
         body: JSON.stringify(payload)
     })
     .then(async res => {
+        const isJson = res.headers.get('content-type')?.includes('application/json');
+        const data = isJson ? await res.json() : null;
+
         if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || "Failed to save book");
+            const errorMsg = data?.error || data?.detail || (await res.text()).slice(0, 100) || "Failed to save book";
+            throw new Error(errorMsg);
         }
-        return res.json();
+        return data;
     })
     .then(() => {
         alert("Book saved successfully");
         window.location.href = "/books-list/";
     })
-    .catch(err => alert("Error: " + err.message));
+    .catch(err => {
+        console.error("Save Error:", err);
+        alert("Error: " + err.message);
+    });
 }
 </script>
 
