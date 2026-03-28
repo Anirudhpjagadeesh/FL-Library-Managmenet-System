@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-5">
+
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+        <h4 class="mb-2 mb-md-0">
+            <i class="bi bi-journal-bookmark-fill"></i> Issued Books
+        </h4>
+        <a href="/books-list/" class="btn btn-success">
+            <i class="bi bi-arrow-left-circle-fill"></i> Back to Books
+        </a>
+    </div>
+
+    <!-- Responsive Table -->
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-bordered table-hover align-middle text-center mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>Book</th>
+                    <th>Issued To</th>
+                    <th>Email</th>
+                    <th>Issued Date</th>
+                    <th>Return Date</th>
+                    <th>Status</th>
+                    <th>Return Book</th>
+                </tr>
+            </thead>
+            <tbody id="issued-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <button class="btn btn-outline-secondary" id="prevBtn" disabled>
+            ⬅ Previous
+        </button>
+
+        <span class="fw-bold text-muted">
+            Page <span id="currentPage">1</span>
+        </span>
+
+        <button class="btn btn-outline-secondary" id="nextBtn" disabled>
+            Next ➡
+        </button>
+    </div>
+
+</div>
+
+<!-- <script>
+const token = localStorage.getItem("access");
+if (!token) window.location.href = "/login/";
+
+const issuedAPI = "/api/issue-books/";
+const usersAPI  = "/api/auth/users/";
+const booksAPI  = "/api/books/";
+
+let usersMap = {};
+let booksMap = {};
+let currentPage = 1;
+let nextPage = null;
+let prevPage = null;
+
+// Load users & books first
+Promise.all([
+    fetch(usersAPI, { headers: { Authorization: "Bearer " + token } }).then(res => res.json()),
+    fetch(booksAPI, { headers: { Authorization: "Bearer " + token } }).then(res => res.json())
+])
+.then(([users, books]) => {
+    users.forEach(u => usersMap[u.id] = u);
+    books.forEach(b => booksMap[b.id] = b);
+    loadIssuedBooks();
+})
+.catch(() => alert("Failed to load users or books"));
+
+// Load issued books (paginated)
+function loadIssuedBooks(url = `${issuedAPI}?page=${currentPage}`) {
+    fetch(url, { headers: { Authorization: "Bearer " + token } })
+        .then(res => res.json())
+        .then(data => {
+
+            nextPage = data.next;
+            prevPage = data.previous;
+
+            document.getElementById("nextBtn").disabled = !nextPage;
+            document.getElementById("prevBtn").disabled = !prevPage;
+            document.getElementById("currentPage").innerText = currentPage;
+
+            let rows = "";
+
+            if (!data.results.length) {
+                rows = `<tr>
+                            <td colspan="8" class="text-muted py-3">
+                                No issued books found
+                            </td>
+                        </tr>`;
+            } else {
+                data.results.forEach((item, index) => {
+                    const user = usersMap[item.user] || { username: "-", email: "-" };
+                    const book = booksMap[item.book] || { title: "Unknown" };
+
+                    rows += `
+                        <tr>
+                            <td>${((currentPage - 1) * 10) + index + 1}</td>
+                            <td class="fw-bold">${book.title}</td>
+                            <td>${user.username}</td>
+                            <td>${user.email}</td>
+                            <td>${formatDate(item.issue_timestamp)}</td>
+                            <td>${item.return_timestamp ? formatDate(item.return_timestamp) : "-"}</td>
+                            <td>
+                                <span class="badge ${item.returned ? "bg-success" : "bg-warning text-dark"}">
+                                    ${item.returned ? "Returned" : "Issued"}
+                                </span>
+                            </td>
+                            <td>
+                                ${
+                                    item.returned
+                                    ? `<span class="text-muted">-</span>`
+                                    : `<button class="btn btn-sm btn-primary fw-bold"
+                                              onclick="returnBook(${item.id})">
+                                            <i class="bi bi-check-circle-fill"></i> Return
+                                       </button>`
+                                }
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById("issued-table").innerHTML = rows;
+        })
+        .catch(() => alert("Failed to load issued books"));
+}
+
+// Pagination buttons
+document.getElementById("nextBtn").onclick = () => {
+    if (nextPage) {
+        currentPage++;
+        loadIssuedBooks(nextPage);
+    }
+};
+
+document.getElementById("prevBtn").onclick = () => {
+    if (prevPage) {
+        currentPage--;
+        loadIssuedBooks(prevPage);
+    }
+};
+
+// Return book
+function returnBook(id) {
+    if (!confirm("Mark this book as returned?")) return;
+
+    fetch(`${issuedAPI}${id}/`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ returned: true })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Failed");
+        loadIssuedBooks();
+    })
+    .catch(() => alert("Failed to return book"));
+}
+
+// Format date
+function formatDate(date) {
+    if (!date) return "-";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "Invalid Date";
+    return d.toLocaleString(); // Returns date and time as timestamp
+}
+</script> -->
+
+<script>
+const token = localStorage.getItem("access");
+if (!token) window.location.href = "/";
+
+const issuedAPI = "/api/issue-books/";
+
+let currentPage = 1;
+let nextPage = null;
+let prevPage = null;
+
+// ---------------- INIT ----------------
+loadIssuedBooks();
+
+// ---------------- LOAD ISSUED BOOKS ----------------
+function loadIssuedBooks(url = `${issuedAPI}?page=${currentPage}`) {
+    fetch(url, {
+        headers: { Authorization: "Bearer " + token }
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        const items = data.results || [];
+
+        nextPage = data.next;
+        prevPage = data.previous;
+
+        document.getElementById("nextBtn").disabled = !nextPage;
+        document.getElementById("prevBtn").disabled = !prevPage;
+        document.getElementById("currentPage").innerText = currentPage;
+
+        let rows = "";
+
+        if (!items.length) {
+            rows = `
+                <tr>
+                    <td colspan="8" class="text-muted py-3">
+                        No issued books found
+                    </td>
+                </tr>
+            `;
+        } else {
+            items.forEach((item, index) => {
+                rows += `
+                    <tr>
+                        <td>${((currentPage - 1) * 10) + index + 1}</td>
+                        <td class="fw-bold">${item.book_title || "Unknown"}</td>
+                        <td>${item.user_name || "-"}</td>
+                        <td>${item.email || "-"}</td>
+                        <td>${formatDate(item.issue_timestamp)}</td>
+                        <td>${item.return_timestamp ? formatDate(item.return_timestamp) : "-"}</td>
+                        <td>
+                            <span class="badge ${item.returned ? "bg-success" : "bg-warning text-dark"}">
+                                ${item.returned ? "Returned" : "Issued"}
+                            </span>
+                        </td>
+                        <td>
+                            ${
+                                item.returned
+                                ? `<button class="btn btn-sm btn-outline-danger fw-bold"
+                                           onclick="toggleReturnStatus(${item.id}, false)">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Undo
+                                   </button>`
+                                : `<button class="btn btn-sm btn-primary fw-bold"
+                                          onclick="toggleReturnStatus(${item.id}, true)">
+                                        <i class="bi bi-check-circle-fill"></i> Return
+                                   </button>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById("issued-table").innerHTML = rows;
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Failed to load issued books");
+    });
+}
+
+// ---------------- PAGINATION BUTTONS ----------------
+document.getElementById("nextBtn").onclick = () => {
+    if (nextPage) {
+        currentPage++;
+        loadIssuedBooks(nextPage);
+    }
+};
+
+document.getElementById("prevBtn").onclick = () => {
+    if (prevPage) {
+        currentPage--;
+        loadIssuedBooks(prevPage);
+    }
+};
+
+// ---------------- TOGGLE RETURN STATUS ----------------
+function toggleReturnStatus(id, newStatus) {
+    const actionText = newStatus ? "Mark this book as returned?" : "Undo return? (This will re-issue the book)";
+    if (!confirm(actionText)) return;
+
+    fetch(`${issuedAPI}${id}/`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token
+        },
+        body: JSON.stringify({ returned: newStatus })
+    })
+    .then(async res => {
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || "Action failed");
+        }
+        loadIssuedBooks();
+    })
+    .catch(err => alert("Error: " + err.message));
+}
+
+// ---------------- DATE FORMAT ----------------
+function formatDate(date) {
+    if (!date) return "-";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "Invalid Date";
+    return d.toLocaleString(); // Returns date and time as timestamp
+}
+</script>
+
+
+{% endblock %}

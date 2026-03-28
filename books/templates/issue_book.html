@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- QR Scanner Library -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-journal-bookmark-fill"></i> Issue Book
+                    </h4>
+                </div>
+                <div class="card-body">
+
+                    <!-- QR/Barcode Code Scanner Section -->
+                    <div id="qr-scanner-container" class="mb-4 text-center">
+                        <button id="toggle-scanner" class="btn btn-outline-dark btn-sm mb-2">
+                            <i class="bi bi-qr-code-scan"></i> Scan QR/Barcode
+                        </button>
+                        <div id="reader" style="width: 100%; display: none;"></div>
+                        <p id="scan-result" class="small text-success mt-2 fw-bold" style="display: none;"></p>
+                    </div>
+
+                    <!-- Select Book -->
+                    <label for="book_id" class="form-label">Select Book</label>
+                    <select id="book_id" class="form-select mb-3">
+                        <option value="">-- Choose a Book --</option>
+                    </select>
+
+                    <!-- Select User -->
+                    <div id="user-selection-group">
+                        <label for="user_id" class="form-label">Select User</label>
+                        <select id="user_id" class="form-select mb-4">
+                            <option value="">-- Choose a User --</option>
+                        </select>
+                    </div>
+
+                    <!-- Issue Button -->
+                    <button id="issue-btn" class="btn btn-warning w-100 fw-bold" onclick="issueBook()">
+                        <i class="bi bi-send-fill"></i> Issue Book
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem("access");
+if (!token) window.location.href = "/";
+
+const bookSelect = document.getElementById("book_id");
+const userSelect = document.getElementById("user_id");
+const issueBtn = document.getElementById("issue-btn");
+
+// ------------------- QR CODE SCANNER -------------------
+let html5QrCode;
+const toggleScannerBtn = document.getElementById("toggle-scanner");
+const reader = document.getElementById("reader");
+const scanResult = document.getElementById("scan-result");
+
+toggleScannerBtn.addEventListener("click", () => {
+    if (reader.style.display === "none") {
+        reader.style.display = "block";
+        toggleScannerBtn.innerHTML = '<i class="bi bi-x-circle-fill"></i> Stop Scanner';
+        startScanner();
+    } else {
+        stopScanner();
+    }
+});
+
+function startScanner() {
+    html5QrCode = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 150 } }; // Wider for barcodes
+
+    html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+    .catch(err => {
+        console.error("Camera Error:", err);
+        alert("Camera access failed. Check permissions.");
+        stopScanner();
+    });
+}
+
+function onScanSuccess(decodedText) {
+    // We assume the QR code contains the book ID
+    const bookId = decodedText.trim();
+    
+    // Check if the book ID exists in the select dropdown
+    const options = bookSelect.options;
+    let found = false;
+
+    for (let i = 0; i < options.length; i++) {
+        if (options[i].value === bookId) {
+            bookSelect.selectedIndex = i;
+            found = true;
+            break;
+        }
+    }
+
+    if (found) {
+        scanResult.innerText = `✅ Scanned Book ID: ${bookId}`;
+        scanResult.style.display = "block";
+        stopScanner();
+    } else {
+        alert("No book found with the scanned ID.");
+    }
+}
+
+function stopScanner() {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            reader.style.display = "none";
+            toggleScannerBtn.innerHTML = '<i class="bi bi-qr-code-scan"></i> Scan QR/Barcode';
+        }).catch(err => console.error(err));
+    } else {
+        reader.style.display = "none";
+        toggleScannerBtn.innerHTML = '<i class="bi bi-qr-code-scan"></i> Scan QR/Barcode';
+    }
+}
+
+// ------------------- LOAD BOOKS -------------------
+function loadBooks() {
+    return fetch("/api/books/", {
+        headers: { Authorization: "Bearer " + token }
+    })
+    .then(res => res.json())
+    .then(data => {
+        bookSelect.innerHTML = '<option value="">-- Choose a Book --</option>';
+
+        const books = data.results || data; // pagination safe
+
+        books.forEach(book => {
+            const disabled = book.available_copies === 0 ? "disabled" : "";
+            const text = `${book.title} (${book.available_copies} available)`;
+
+            bookSelect.innerHTML += `
+                <option value="${book.id}" ${disabled}>
+                    ${text}
+                </option>
+            `;
+        });
+    })
+    .catch(err => console.error("Books load error:", err));
+}
+
+
+// ------------------- LOAD USERS -------------------
+async function loadUsers() {
+    // First, check the current user's role
+    const meRes = await fetch("/api/auth/me/", {
+        headers: { Authorization: "Bearer " + token }
+    });
+    const me = await meRes.json();
+
+    if (!me.is_superuser) {
+        // If not admin, hide user selection and pre-set to current user
+        document.getElementById("user-selection-group").style.display = "none";
+        userSelect.innerHTML = `<option value="${me.id}" selected>${me.username}</option>`;
+        return;
+    }
+
+    // If admin, load all users
+    return fetch("/api/auth/users/", {
+        headers: { Authorization: "Bearer " + token }
+    })
+    .then(res => res.json())
+    .then(data => {
+        userSelect.innerHTML = '<option value="">-- Choose a User --</option>';
+
+        const users = data.results || data; // pagination safe
+
+        users.forEach(user => {
+            userSelect.innerHTML += `
+                <option value="${user.id}">
+                    ${user.username}
+                </option>
+            `;
+        });
+    })
+    .catch(err => console.error("Users load error:", err));
+}
+
+
+// ------------------- INIT -------------------
+Promise.all([loadBooks(), loadUsers()]).then(() => {
+    // Auto-start scanner if requested via URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('scan') === 'true') {
+        if (reader.style.display === "none") {
+            reader.style.display = "block";
+            toggleScannerBtn.innerHTML = '<i class="bi bi-x-circle-fill"></i> Stop Scanner';
+            startScanner();
+        }
+    }
+});
+
+// ------------------- ISSUE BOOK -------------------
+function issueBook() {
+    if (!bookSelect.value || !userSelect.value) {
+        alert("Please select both a book and a user.");
+        return;
+    }
+
+    // Disable button to prevent double-click
+    issueBtn.disabled = true;
+
+    fetch("/api/issue-books/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token
+        },
+        body: JSON.stringify({
+            book: Number(bookSelect.value),
+            user: Number(userSelect.value)
+        })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Failed to issue book");
+        return res.json();
+    })
+    .then(() => {
+        alert("✅ Book issued successfully!");
+
+        // Reload books dropdown to update availability
+        loadBooks();
+        // Reset selection
+        bookSelect.value = "";
+        userSelect.value = "";
+        issueBtn.disabled = false;
+    })
+    .catch(err => {
+        console.error(err);
+        alert("❌ Error issuing book. Check console.");
+        issueBtn.disabled = false;
+    });
+}
+</script>
+
+{% endblock %}

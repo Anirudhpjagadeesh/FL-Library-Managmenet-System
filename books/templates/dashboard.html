@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<!-- ===================== Dashboard Stats ===================== -->
+<div class="row g-4 mb-4">
+
+    <!-- Total Books -->
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <i class="bi bi-book stat-icon fs-1 mb-2"></i>
+            <h3 class="mb-1">{{ total_books }}</h3>
+            <p class="mb-0">Total Books</p>
+        </div>
+
+    </div>
+
+    <!-- Total Members -->
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <i class="bi bi-people stat-icon fs-1 mb-2"></i>
+            <h3 class="mb-1">{{ total_members }}</h3>
+            <p class="mb-0">Total Members</p>
+        </div>
+
+    </div>
+
+    <!-- Issued Books -->
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <i class="bi bi-journal-arrow-up stat-icon fs-1 mb-2"></i>
+            <h3 class="mb-1">{{ issued_books }}</h3>
+            <p class="mb-0">Issued</p>
+        </div>
+
+    </div>
+
+    <!-- Out of Stock -->
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <i class="bi bi-exclamation-triangle stat-icon fs-1 mb-2"></i>
+            <h3 class="mb-1">{{ out_of_stock }}</h3>
+            <p class="mb-0">Out of Stock</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===================== Charts ===================== -->
+<div class="row g-4">
+
+    <!-- Books Status Chart -->
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h6 class="fw-bold mb-3">📊 Books Status</h6>
+            <canvas id="bookChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Library Overview Chart -->
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h6 class="fw-bold mb-3">📈 Library Overview</h6>
+            <canvas id="overviewChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== Charts JS ===================== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // Doughnut chart for Books Status
+        new Chart(document.getElementById('bookChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Available', 'Issued'],
+                datasets: [{
+                    data: [{{ available_books }}, {{ issued_books }}],
+            backgroundColor: ['#198754', '#ffc107'],
+            borderWidth: 1
+        }]
+        },
+        options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } }
+    }
+    });
+
+    // Bar chart for Library Overview
+    new Chart(document.getElementById('overviewChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Books', 'Members', 'Issued'],
+            datasets: [{
+                label: 'Library Data',
+                data: [{{ total_books }}, {{ total_members }}, {{ issued_books }}],
+        backgroundColor: ['#0d6efd', '#198754', '#ffc107'],
+        borderRadius: 5
+            }]
+        },
+        options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+    }
+    });
+
+});
+</script>
+
+{% endblock %}

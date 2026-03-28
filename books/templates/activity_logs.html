@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-4">
+
+    <h4 class="mb-4 text-center text-primary">
+        <i class="bi bi-list-check"></i> Activity Logs
+    </h4>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover table-bordered align-middle text-center">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="logs-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <button class="btn btn-outline-secondary" id="prevBtn" disabled>
+            ⬅ Previous
+        </button>
+
+        <span class="fw-bold text-muted">
+            Page <span id="currentPage">1</span>
+        </span>
+
+        <button class="btn btn-outline-secondary" id="nextBtn" disabled>
+            Next ➡
+        </button>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem("access");
+if (!token) window.location.href = "/";
+
+const API = "/api/activity-logs/";
+let currentPage = 1;
+let nextPage = null;
+let prevPage = null;
+
+// ---------------- LOAD ACTIVITY LOGS ----------------
+function loadLogs(url = `${API}?page=${currentPage}`) {
+    fetch(url, {
+        headers: { Authorization: "Bearer " + token }
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        const logs = data.results || [];
+
+        nextPage = data.next;
+        prevPage = data.previous;
+
+        document.getElementById("nextBtn").disabled = !nextPage;
+        document.getElementById("prevBtn").disabled = !prevPage;
+        document.getElementById("currentPage").innerText = currentPage;
+
+        let rows = "";
+
+        if (!logs.length) {
+            rows = `<tr><td colspan="5" class="text-muted py-3">No activity logs found</td></tr>`;
+        } else {
+            logs.forEach((log, index) => {
+                rows += `
+                    <tr>
+                        <td>${((currentPage-1)*10)+index+1}</td>
+                        <td>${log.user_name || '-'}</td>
+                        <td>${log.action}</td>
+                        <td>${log.target || '-'}</td>
+                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById("logs-table").innerHTML = rows;
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Failed to load activity logs");
+    });
+}
+
+// ---------------- PAGINATION BUTTONS ----------------
+document.getElementById("nextBtn").onclick = () => {
+    if (nextPage) {
+        currentPage++;
+        loadLogs(nextPage);
+    }
+};
+
+document.getElementById("prevBtn").onclick = () => {
+    if (prevPage) {
+        currentPage--;
+        loadLogs(prevPage);
+    }
+};
+
+// Initial load
+loadLogs();
+</script>
+
+{% endblock %}

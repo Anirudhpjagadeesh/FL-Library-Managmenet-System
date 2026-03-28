@@ -1,0 +1,367 @@
+{% load tz %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <title>FL LIBRARY SYSTEM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #f4f6f9;
+            --card: #ffffff;
+            --text: #1b1c1d;
+            --sidebar: #8c8a85;
+            --accent: #ffde21;
+        }
+
+        [data-theme="dark"] {
+            --bg: #121212;
+            --card: #1f1f1f;
+            --text: #e9ecef;
+            --sidebar: #20201e;
+            --accent: #ffc107;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Poppins', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* DARK MODE TEXT UTILS */
+        [data-theme="dark"] .text-muted {
+            color: #adb5bd !important;
+        }
+
+        [data-theme="dark"] .table {
+             color: var(--text);
+             border-color: #373b3e;
+         }
+
+         [data-theme="dark"] .form-control, [data-theme="dark"] .form-select {
+             background-color: #2b3035;
+             border-color: #495057;
+             color: #e9ecef;
+         }
+
+         [data-theme="dark"] .form-control:focus, [data-theme="dark"] .form-select:focus {
+             background-color: #2b3035;
+             color: #ffffff;
+             border-color: var(--accent);
+             box-shadow: 0 0 0 0.25rem rgba(255, 222, 33, 0.25);
+         }
+
+         [data-theme="dark"] .form-control::placeholder {
+             color: #adb5bd;
+         }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 260px;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: #ffffff;
+            padding: 20px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            border-right: 1px solid #f0f0f0;
+        }
+
+        [data-theme="dark"] .sidebar {
+            background: #1a1a1a;
+            border-right: 1px solid #2a2a2a;
+        }
+
+        .sidebar h4 {
+            color: #1a1a1a;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        [data-theme="dark"] .sidebar h4 {
+            color: #ffffff;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            color: #666;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        [data-theme="dark"] .sidebar a {
+            color: #ccc;
+        }
+
+        .sidebar a i {
+            margin-right: 8px;
+        }
+
+        .sidebar a:hover, .sidebar a.active {
+            background: #f8f9fa;
+            color: #1a1a1a;
+            transform: translateX(6px);
+        }
+
+        [data-theme="dark"] .sidebar a:hover {
+            background: #2a2a2a;
+            color: #ffffff;
+        }
+
+        /* USER PROFILE IN SIDEBAR */
+        .sidebar-user {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .sidebar-user img {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            margin-bottom: 10px;
+        }
+
+        .sidebar-user .name {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .sidebar-user .role {
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        /* MAIN CONTENT */
+        .main {
+            margin-left: 260px;
+            padding: 25px;
+            min-height: calc(100vh - 140px);
+            animation: fadeSlide 0.4s ease-in-out;
+        }
+
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* TOPBAR */
+        .topbar {
+            background: var(--card);
+            padding: 14px 20px;
+            border-radius: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+            margin-bottom: 25px;
+        }
+
+        .toggle-btn {
+            font-size: 1.4rem;
+            cursor: pointer;
+        }
+
+        /* CARDS & TABLES */
+        .card, .table-responsive, .stat-card {
+            background: var(--card);
+            border-radius: 14px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            padding: 20px;
+            color: var(--text);
+        }
+
+        table {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        /* FOOTER */
+        .footer {
+            background: var(--card);
+            padding: 16px 25px;
+            border-radius: 16px;
+            box-shadow: 0 -6px 20px rgba(0,0,0,0.12);
+            font-size: 0.9rem;
+            margin: 20px;
+        }
+
+        /* MOBILE */
+        @media (max-width: 992px) {
+            .sidebar {
+                left: -260px;
+            }
+            .sidebar.show {
+                left: 0;
+            }
+            .main {
+                margin-left: 0;
+            }
+        }
+
+        /* RBAC - HIDE ADMIN ONLY ELEMENTS FOR REGULAR USERS */
+        body.user-role-regular .admin-only {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+    <h4 class="text-center mb-4"> FL LIBRARY</h4>
+
+    <a href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+    <a href="/books-list/"><i class="bi bi-book"></i> Books</a>
+    <a href="/issue-book/"><i class="bi bi-arrow-up-right-square"></i> Issue Book</a>
+    <a href="/issued-books/"><i class="bi bi-journal-check"></i> Issued Books</a>
+    <a href="/activity-logs/" class="admin-only"><i class="bi bi-clock-history"></i> Activity Logs</a>
+    <hr class="text-light">
+    <a href="#" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</a>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-warning d-lg-none" onclick="toggleSidebar()">
+                <i class="bi bi-list"></i>
+            </button>
+            <a href="/issue-book/?scan=true" class="btn btn-outline-dark d-lg-none rounded-pill px-3">
+                <i class="bi bi-qr-code-scan"></i> Scan
+            </a>
+            <h5 class="fw-bold mb-0 d-none d-sm-inline">Library Management</h5>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+
+            <!-- Theme Toggle -->
+            <i class="bi bi-moon-fill toggle-btn" onclick="toggleTheme()"></i>
+
+            <!-- Profile Dropdown -->
+            <div class="dropdown">
+                <a class="d-flex align-items-center text-decoration-none dropdown-toggle"
+                   data-bs-toggle="dropdown">
+                    <img id="top-user-img" src="https://ui-avatars.com/api/?name=User&background=1cc88a&color=fff"
+                         width="38" height="38" class="rounded-circle me-2">
+                    <span id="top-user-name" class="fw-semibold d-none d-md-inline">
+                        User
+                    </span>
+                </a>
+
+                <ul class="dropdown-menu dropdown-menu-end shadow">
+                    <li id="top-user-email" class="px-3 py-2 small text-muted">
+                        -
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" href="/profile/">
+                            <i class="bi bi-person me-2"></i> Profile
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="/change-password/">
+                            <i class="bi bi-key me-2"></i> Change Password
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item text-danger" href="#" onclick="logout()">
+                            <i class="bi bi-box-arrow-right me-2"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    {% block content %}{% endblock %}
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        © {{ now|date:"Y" }} <strong>FL Library</strong> · Franklins Lectures Powered
+    </footer>
+</div>
+
+<!-- JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function logout() {
+    localStorage.clear();
+    window.location.href = "/";
+}
+
+function toggleTheme() {
+    const html = document.documentElement;
+    const newTheme = html.getAttribute("data-theme") === "light" ? "dark" : "light";
+    html.setAttribute("data-theme", newTheme);
+    localStorage.setItem("theme", newTheme);
+    updateToggleIcon(newTheme);
+}
+
+function updateToggleIcon(theme) {
+    const icon = document.querySelector(".toggle-btn");
+    icon.className = theme === "light"
+        ? "bi bi-moon-fill toggle-btn"
+        : "bi bi-sun-fill toggle-btn";
+}
+
+function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("show");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const theme = localStorage.getItem("theme") || "light";
+    document.documentElement.setAttribute("data-theme", theme);
+    updateToggleIcon(theme);
+
+    // Fetch current user and update UI/Permissions
+    const token = localStorage.getItem("access");
+    if (token) {
+        fetch("/api/auth/me/", {
+            headers: { Authorization: "Bearer " + token }
+        })
+        .then(res => {
+            if (!res.ok) throw new Error();
+            return res.json();
+        })
+        .then(user => {
+            // Update Topbar
+            document.getElementById("top-user-name").innerText = user.username;
+            document.getElementById("top-user-email").innerText = user.email;
+            document.getElementById("top-user-img").src = `https://ui-avatars.com/api/?name=${user.username}&background=1cc88a&color=fff`;
+
+            // Handle Admin-only visibility
+            if (user.is_superuser) {
+                document.body.classList.add("user-role-admin");
+            } else {
+                document.body.classList.add("user-role-regular");
+            }
+        })
+        .catch(() => {
+            // If token is invalid, don't necessarily logout but hide user-specific info
+        });
+    }
+});
+
+
+</script>
+</body>
+</html>
