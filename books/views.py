@@ -141,59 +141,85 @@ class BookViewSet(viewsets.ModelViewSet):
         return author, category
 
     def create(self, request, *args, **kwargs):
-        title = request.data.get('title')
-        if Book.objects.filter(title__iexact=title).exists():
-            return Response(
-                {"error": "A book with this title already exists."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        author, category = self.get_or_create_author_category(request.data)
-        total_copies = request.data.get('total_copies')
+        """
+        Custom create to handle error responses correctly for the frontend
+        """
+        try:
+            title = request.data.get('title')
+            if not title:
+                return Response({"error": "Title is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        book = serializer.save(
-            author=author,
-            category=category,
-            available_copies=total_copies
-        )
-        
-        log_activity(
-            user=self.request.user,
-            action="Created Book",
-            target=f"Book: {book.title}"
-        )
-        
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            if Book.objects.filter(title__iexact=title).exists():
+                return Response(
+                    {"error": "A book with this title already exists."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            author, category = self.get_or_create_author_category(request.data)
+            
+            try:
+                total_copies = int(request.data.get('total_copies', 1))
+            except (ValueError, TypeError):
+                total_copies = 1
+
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            book = serializer.save(
+                author=author,
+                category=category,
+                available_copies=total_copies
+            )
+            
+            log_activity(
+                user=self.request.user,
+                action="Created Book",
+                target=f"Book: {book.title}"
+            )
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except ValidationError as e:
+            error_msg = "Validation error"
+            if isinstance(e.detail, dict):
+                error_msg = e.detail.get('error', e.detail.get('non_field_errors', [str(e.detail)]))
+                if isinstance(error_msg, list): error_msg = error_msg[0]
+            return Response({"error": str(error_msg)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         
-        author, category = self.get_or_create_author_category(request.data)
-        
-        # Adjust available_copies based on change in total_copies
-        new_total = int(request.data.get('total_copies', instance.total_copies))
-        diff = new_total - instance.total_copies
-        new_available = instance.available_copies + diff
-        
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        book = serializer.save(
-            author=author,
-            category=category,
-            available_copies=new_available
-        )
-        
-        log_activity(
-            user=self.request.user,
-            action="Updated Book",
-            target=f"Book: {book.title}"
-        )
-        
-        return Response(serializer.data)
+        try:
+            author, category = self.get_or_create_author_category(request.data)
+            
+            # Adjust available_copies based on change in total_copies
+            try:
+                new_total = int(request.data.get('total_copies', instance.total_copies))
+            except (ValueError, TypeError):
+                new_total = instance.total_copies
+                
+            diff = new_total - instance.total_copies
+            new_available = instance.available_copies + diff
+            
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            book = serializer.save(
+                author=author,
+                category=category,
+                available_copies=new_available
+            )
+            
+            log_activity(
+                user=self.request.user,
+                action="Updated Book",
+                target=f"Book: {book.title}"
+            )
+            
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_destroy(self, instance):
         log_activity(
@@ -212,6 +238,29 @@ class IssueBookViewSet(viewsets.ModelViewSet):
     # queryset = IssueBook.objects.all()
     serializer_class = IssueBookSerializer
     pagination_class = IssueBookPagination
+
+    def create(self, request, *args, **kwargs):
+        """
+        Custom create to handle error responses correctly for the frontend
+        """
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except ValidationError as e:
+            # Extract the error message from the exception
+            error_msg = "Validation error"
+            if isinstance(e.detail, dict):
+                error_msg = e.detail.get('error', [str(e.detail)])
+                if isinstance(error_msg, list): error_msg = error_msg[0]
+            elif isinstance(e.detail, list):
+                error_msg = e.detail[0]
+            
+            return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_create(self, serializer):
         """Issue a book and decrease available copies"""

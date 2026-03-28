@@ -182,15 +182,17 @@ async function saveBook() {
     const title = document.getElementById("title").value.trim();
     const author = document.getElementById("author").value.trim();
     const category = document.getElementById("category").value.trim();
-    const total = Number(document.getElementById("total").value);
+    const totalVal = document.getElementById("total").value;
 
-    if (!title || !author || !category) {
+    if (!title || !author || !category || totalVal === "") {
         alert("All fields are required");
         return;
     }
 
+    const total = Number(totalVal);
+
     const payload = {
-        flb_id,
+        flb_id: flb_id || null, // Send null instead of empty string to avoid unique constraint issues
         title,
         author_name: author,
         category_name: category,
@@ -200,6 +202,10 @@ async function saveBook() {
     const apiUrl = bookId 
         ? `/api/books/${bookId}/` 
         : `/api/books/`;
+
+    // Disable button
+    const saveBtn = document.querySelector('button[onclick="saveBook()"]');
+    saveBtn.disabled = true;
 
     fetch(apiUrl, {
         method: bookId ? "PUT" : "POST",
@@ -214,18 +220,19 @@ async function saveBook() {
         const data = isJson ? await res.json() : null;
 
         if (!res.ok) {
-            const errorMsg = data?.error || data?.detail || (await res.text()).slice(0, 100) || "Failed to save book";
+            const errorMsg = data?.error || data?.detail || "Failed to save book. Please check if FLB_ID is unique.";
             throw new Error(errorMsg);
         }
         return data;
     })
     .then(() => {
-        alert("Book saved successfully");
+        alert("✅ Book saved successfully");
         window.location.href = "/books-list/";
     })
     .catch(err => {
         console.error("Save Error:", err);
         alert("Error: " + err.message);
+        saveBtn.disabled = false;
     });
 }
 </script>
