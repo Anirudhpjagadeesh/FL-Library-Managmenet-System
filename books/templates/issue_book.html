@@ -308,10 +308,10 @@ Promise.all([loadBooks(), loadUsers()]).then(() => {
 // ------------------- ISSUE BOOK -------------------
 function issueBook() {
     const bookId = selectedBookIdInput.value;
-    const userId = userSelect.value;
+    const userId = selectedUserIdInput.value;
 
     if (!bookId || !userId) {
-        alert("Please select both a book and a user.");
+        alert("Please search and select both a book and a student.");
         return;
     }
 
@@ -330,16 +330,22 @@ function issueBook() {
         })
     })
     .then(async res => {
-        const data = await res.json();
+        const isJson = res.headers.get('content-type')?.includes('application/json');
+        const data = isJson ? await res.json() : null;
+
         if (!res.ok) {
-            throw new Error(data.error || "Error issuing book. Check console.");
+            const errorMsg = data?.error || data?.detail || "Failed to issue book. The student might already have this book or it's out of stock.";
+            throw new Error(errorMsg);
         }
+        return data;
+    })
+    .then(() => {
         alert("✅ Book issued successfully!");
         window.location.href = "/issued-books/";
     })
     .catch(err => {
-        console.error(err);
-        alert(err.message);
+        console.error("Issue Error:", err);
+        alert("Error: " + err.message);
         issueBtn.disabled = false;
     });
 }
